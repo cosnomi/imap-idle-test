@@ -11,18 +11,20 @@ server = IMAPClient(HOST)
 server.login(USERNAME, PASSWORD)
 server.select_folder('INBOX')
 
-# Start IDLE mode
-server.idle()
-print("Connection is now in IDLE mode, send yourself an email or quit with ^c")
-
+timeout = 30
+connection_refresh_sec = 60 * 10
 while True:
+    # Start IDLE mode
+    server.idle()
+    print("Connection is now in IDLE mode")
     try:
-        # Wait for up to 30 seconds for an IDLE response
-        responses = server.idle_check(timeout=30)
-        print("Server sent:", responses if responses else "nothing")
+        for i in range(connection_refresh_sec//timeout):
+                responses = server.idle_check(timeout=timeout)
+                print("Server sent:", responses if responses else "nothing")
     except KeyboardInterrupt:
         break
+    server.idle_done()
+    print("Disconnected")
 
-server.idle_done()
 print("\nIDLE mode done")
 server.logout()
