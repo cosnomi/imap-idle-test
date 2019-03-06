@@ -1,6 +1,7 @@
 from imapclient import IMAPClient
 import yaml
 from datetime import datetime, timedelta
+from last_fetched_uid_mock import get_last_fetched_uid, set_last_fetched_uid
 
 with open('config.yml') as f:
     data = yaml.load(f)
@@ -20,26 +21,20 @@ while True:
     print("Connection is now in IDLE mode")
     try:
         for i in range(connection_refresh_sec // timeout):
-            last_check_datetime = datetime.now() - timedelta(minutes=5)
-            # The delay of push notification from the server is larger than timeout (30sec), so you have to subtract several minutes.
             responses = server.idle_check(timeout=timeout)
             if responses:
+                print("Server sent:", responses if responses else "nothing")
                 server.idle_done()
-                messages = server.search(['SINCE', last_check_datetime])
-                print(messages)
-                fetched_messages_meta_dict = server.fetch(
-                    messages, ['INTERNALDATE'])
-                to_fetch_body_messages_list = []
-                for key, meta in fetched_messages_meta_dict.items():
-                    print(meta)
-                    if meta[b'INTERNALDATE'] >= last_check_datetime:
-                        print('added')
-                        to_fetch_body_messages_list.append(key)
-                res = server.fetch(to_fetch_body_messages_list,
-                                   ['BODY.PEEK[TEXT]'])
+                print('last uid: {}'.format(get_last_fetched_uid()))
+                messages = server.search(
+                    ['UID', str(get_last_fetched_uid() + 1) + ':*'])
+                print('mes: {}'.format(messages))
+                if len(messages) == 0:
+                    continue
+                set_last_fetched_uid(messages[-1])
+                res = server.fetch(messages, ['BODY.PEEK[TEXT]'])
                 print(res)
                 server.idle()
-            print("Server sent:", responses if responses else "nothing")
     except KeyboardInterrupt:
         break
     server.idle_done()
